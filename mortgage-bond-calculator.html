@@ -3,11 +3,11 @@
 @media(max-width:540px){.header-inner{gap:12px}.brand small{font-size:8px;letter-spacing:1.4px}.back{min-width:76px;min-height:44px;display:flex;align-items:center}.intro{margin-bottom:20px}h1{font-size:30px}.intro p{font-size:13px}.terms{gap:6px;margin-top:16px}.viz-controls{grid-template-columns:1fr 1fr;gap:18px 12px}.form-label:nth-child(1),.form-label:nth-child(2),.form-label:nth-child(5){grid-column:1/-1}.form-label{min-width:0}.form-control{min-height:48px;font-size:18px}.section-head{margin-bottom:18px}.table td{font-size:12px}.text-small{font-size:12px}.results{scroll-margin-top:16px}.jump-results{display:block;text-align:center;background:#0c2344;color:white;padding:14px;border-radius:10px;text-decoration:none;margin-top:20px;font-size:14px}.card .viz-stat-value{font-size:24px}}@media(min-width:541px){.jump-results{display:none}}@media(max-width:360px){.viz-grid{grid-template-columns:1fr}.card:last-child{grid-column:auto}.brand{font-size:18px}.brand small{letter-spacing:1px}}</style></head><body><header><div class="header-inner"><a class="brand" href="/">Upswing Capital<small>Lending solutions. Powering possibilities.</small></a><a class="back" href="/">← Home / 返回首页</a></div></header><main><div class="intro"><div class="eyebrow">Plan with clarity · 清晰规划</div><h1>Mortgage &amp; bond calculator</h1><div class="chinese" lang="zh-Hans">房贷与债券收入计算器</div><p>Explore your monthly repayments and investment income.<br>测算每月本息还款与投资收入。</p><div class="terms"><span>25-year P&amp;I / 25年本息还款</span><span>Up to 60% LVR / 最高贷款比例60%</span><span>50% minimum investment / 最低投资比例50%</span></div></div><div id="mortgage-bond-calculator">
   
   <section class="inputs"><div class="section-head"><span class="number">01</span><h2>Your scenario <small>您的方案</small></h2><span class="pill">AUD / 澳元</span></div><div class="viz-controls">
-    <label class="form-label"><span>Loan amount</span><small lang="zh-Hans">贷款金额 (AUD)</small><input class="form-control" name="loan" type="number" min="0" step="10000" value="1000000"></label>
-    <label class="form-label"><span>Investment amount</span><small lang="zh-Hans">投资金额 (AUD)</small><input class="form-control" name="investment" type="number" min="500000" step="10000" value="500000"></label>
+    <label class="form-label"><span>Loan amount</span><small lang="zh-Hans">贷款金额 (AUD)</small><input class="form-control" name="loan" type="text" inputmode="decimal" autocomplete="off" value="1000000"></label>
+    <label class="form-label"><span>Investment amount</span><small lang="zh-Hans">投资金额 (AUD)</small><input class="form-control" name="investment" type="text" inputmode="decimal" autocomplete="off" value="500000"></label>
     <label class="form-label"><span>Mortgage rate</span><small lang="zh-Hans">房贷年利率 (%)</small><input class="form-control" name="rate" type="number" min="0" max="100" step="0.1" value="2.5"></label>
     <label class="form-label"><span>Bond cash income rate</span><small lang="zh-Hans">债券年现金收益率 (%)</small><input class="form-control" name="yield" type="number" min="0" max="100" step="0.1" value="7"></label>
-    <label class="form-label"><span>Security market value</span><small lang="zh-Hans">抵押物市值 (AUD)</small><input class="form-control" name="security" type="number" min="0" step="100000" value="5000000"></label>
+    <label class="form-label"><span>Security market value</span><small lang="zh-Hans">抵押物市值 (AUD)</small><input class="form-control" name="security" type="text" inputmode="decimal" autocomplete="off" value="5000000"></label>
   </div>
   <p id="mb-validation" role="alert"></p><a class="jump-results" href="#results">View results / 查看结果 ↓</a></section>
   <section class="results" id="results" aria-live="polite"><div class="section-head"><span class="number">02</span><h2>Monthly outlook <small>月度收支</small></h2></div>
@@ -36,9 +36,18 @@
   const fields = Object.fromEntries(names.map(n => [n, root.querySelector('[name="'+n+'"]')]));
   const defaults = {loan:1000000, investment:500000, rate:2.5, yield:7, security:5000000};
   const money = n => new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD',maximumFractionDigits:2}).format(n);
+  const currencyNames = ['loan','investment','security'];
+  function readValue(n) {
+    const raw = fields[n].value.replace(/[$,\s]/g,'');
+    return raw === '' || !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw) ? NaN : Number(raw);
+  }
+  function formatCurrency(n) {
+    const value = readValue(n);
+    if(Number.isFinite(value)) fields[n].value = new Intl.NumberFormat('en-AU', {style:'currency',currency:'AUD',minimumFractionDigits:0,maximumFractionDigits:2}).format(value);
+  }
   const set = (id, value) => root.querySelector('#mb-'+id).textContent = value;
   function render(save) {
-    const v = Object.fromEntries(names.map(n => [n,fields[n].value === '' ? NaN : Number(fields[n].value)]));
+    const v = Object.fromEntries(names.map(n => [n,readValue(n)]));
     const valid = names.every(n => Number.isFinite(v[n]) && v[n]>=0) && v.rate<=100 && v.yield<=100;
     fields.investment.min = Number.isFinite(v.loan) ? v.loan*.5 : 0;
     fields.loan.max = Number.isFinite(v.security) ? v.security*.6 : 0;
@@ -76,5 +85,13 @@
   }
   names.forEach(n=>fields[n].addEventListener('input',()=>render(true)));
   restore(null);
+  currencyNames.forEach(n => {
+    formatCurrency(n);
+    fields[n].addEventListener('focus', () => {
+      const value = readValue(n);
+      if(Number.isFinite(value)) fields[n].value = String(value);
+    });
+    fields[n].addEventListener('blur', () => { formatCurrency(n); render(false); });
+  });
 })();
 </script><aside class="notes"><p>All amounts in AUD. Rates are illustrative and assumed constant. Bond income is before tax and shown as a monthly equivalent; actual payment timing may differ. Use the bond cash income rate, which may differ from yield to maturity. The 1.5% application fee is paid upfront and excluded from repayments.</p><p lang="zh-Hans">所有金额均为澳元。利率仅用于测算，并假设保持不变。债券收入为税前月均金额，实际付息时间可能不同。请使用债券现金收益率，其可能与到期收益率不同。1.5%申请费另行预付，不计入月供。</p></aside></main><footer>© Upswing Capital · Lending solutions. Powering possibilities.</footer></body></html>
